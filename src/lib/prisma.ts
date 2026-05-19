@@ -33,3 +33,6 @@ export const prisma: PrismaClient = new Proxy({} as PrismaClient, {
     return (getPrisma() as never)[prop as keyof PrismaClient];
   },
 });
+
+// Derived without prisma generate — safe to use before client is generated.
+export type TxClient = Parameters<Parameters<PrismaClient["$transaction"]>[0]>[0];

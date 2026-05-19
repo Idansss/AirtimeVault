@@ -1,8 +1,8 @@
-import { prisma } from "@/lib/prisma";
+import { prisma, type TxClient } from "@/lib/prisma";
 import { ApiError } from "./auth";
-import type { Prisma, TransactionType } from "@prisma/client";
+import type { TransactionType } from "@prisma/client";
 
-type WalletTx = Prisma.TransactionClient;
+type WalletTx = TxClient;
 
 /** Credit or debit wallet and write a ledger entry atomically. */
 export async function applyWalletTransaction({

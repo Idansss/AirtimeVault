@@ -2,8 +2,8 @@ import { NextRequest } from "next/server";
 import { z } from "zod";
 import { requireAuth } from "@/lib/api/auth";
 import { ok, err, handleError } from "@/lib/api/response";
-import { prisma } from "@/lib/prisma";
-import type { Prisma } from "@prisma/client";
+import { prisma, type TxClient } from "@/lib/prisma";
+
 import { applyWalletTransaction } from "@/lib/api/wallet";
 
 export const dynamic = "force-dynamic";
@@ -56,7 +56,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       if (deal.buyerId !== session.sub) return err("Only the buyer can release funds", 403);
       if (deal.status !== "DELIVERED" && deal.status !== "FUNDED") return err("Deal cannot be released from this status");
 
-      await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+      await prisma.$transaction(async (tx: TxClient) => {
         const locked = await tx.escrowDeal.updateMany({
           where: { id, status: { in: ["FUNDED", "DELIVERED"] } },
           data: { status: "COMPLETED", completedAt: new Date() },
