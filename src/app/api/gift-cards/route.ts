@@ -4,6 +4,7 @@ import { z } from "zod";
 import { requireAuth } from "@/lib/api/auth";
 import { created, err, handleError } from "@/lib/api/response";
 import { prisma } from "@/lib/prisma";
+import type { Prisma } from "@prisma/client";
 import { applyWalletTransaction } from "@/lib/api/wallet";
 
 export const dynamic = "force-dynamic";
@@ -33,7 +34,7 @@ export async function POST(req: NextRequest) {
     const pinValid = await bcrypt.compare(parsed.data.pin, user.pin);
     if (!pinValid) return err("Incorrect PIN", 401);
 
-    const order = await prisma.$transaction(async (tx) => {
+    const order = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       const createdOrder = await tx.giftCardOrder.create({
         data: {
           userId: session.sub,

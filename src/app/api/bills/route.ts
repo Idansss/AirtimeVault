@@ -4,6 +4,7 @@ import { z } from "zod";
 import { requireAuth } from "@/lib/api/auth";
 import { ok, created, err, handleError } from "@/lib/api/response";
 import { prisma } from "@/lib/prisma";
+import type { Prisma } from "@prisma/client";
 import { applyWalletTransaction } from "@/lib/api/wallet";
 
 export const dynamic = "force-dynamic";
@@ -36,7 +37,7 @@ export async function POST(req: NextRequest) {
       return err("Bill payment provider is not configured", 503);
     }
 
-    const payment = await prisma.$transaction(async (tx) => {
+    const payment = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       await applyWalletTransaction({
         userId: session.sub,
         type: "BILL_PAYMENT",

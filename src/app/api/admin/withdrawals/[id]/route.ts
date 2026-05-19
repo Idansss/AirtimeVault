@@ -3,6 +3,7 @@ import { z } from "zod";
 import { requireAdmin } from "@/lib/api/auth";
 import { ok, err, handleError } from "@/lib/api/response";
 import { prisma } from "@/lib/prisma";
+import type { Prisma } from "@prisma/client";
 import { applyWalletTransaction } from "@/lib/api/wallet";
 
 export const dynamic = "force-dynamic";
@@ -43,7 +44,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     }
 
     if (action === "MARK_FAILED" || action === "REVERSE") {
-      await prisma.$transaction(async (tx) => {
+      await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
         await tx.withdrawal.update({
           where: { id },
           data: {

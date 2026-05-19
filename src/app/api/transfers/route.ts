@@ -3,6 +3,7 @@ import bcrypt from "bcryptjs";
 import { requireAuth } from "@/lib/api/auth";
 import { ok, created, err, handleError } from "@/lib/api/response";
 import { prisma } from "@/lib/prisma";
+import type { Prisma } from "@prisma/client";
 import { applyWalletTransaction } from "@/lib/api/wallet";
 
 export const dynamic = "force-dynamic";
@@ -32,7 +33,7 @@ export async function POST(req: NextRequest) {
     if (!receiver) return err("Recipient not found", 404);
     if (receiver.id === session.sub) return err("Cannot transfer to yourself");
 
-    const transfer = await prisma.$transaction(async (tx) => {
+    const transfer = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       await applyWalletTransaction({
         userId: session.sub,
         type: "P2P_SEND",

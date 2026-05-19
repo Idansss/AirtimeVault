@@ -3,6 +3,7 @@ import { z } from "zod";
 import { requireAdmin } from "@/lib/api/auth";
 import { ok, err, handleError } from "@/lib/api/response";
 import { prisma } from "@/lib/prisma";
+import type { Prisma } from "@prisma/client";
 import { applyWalletTransaction } from "@/lib/api/wallet";
 
 export const dynamic = "force-dynamic";
@@ -38,7 +39,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       const creditAmount = walletAmount ?? Number(conversion.walletAmount);
       if (creditAmount <= 0) return err("A positive wallet amount is required before approval");
 
-      await prisma.$transaction(async (tx) => {
+      await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
         const locked = await tx.conversionRequest.updateMany({
           where: { id, status: { in: [...ACTIVE_STATUSES] } },
           data: {

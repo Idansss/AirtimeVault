@@ -3,6 +3,7 @@ import bcrypt from "bcryptjs";
 import { requireAuth } from "@/lib/api/auth";
 import { ok, created, err, handleError } from "@/lib/api/response";
 import { prisma } from "@/lib/prisma";
+import type { Prisma } from "@prisma/client";
 import { applyWalletTransaction } from "@/lib/api/wallet";
 import { WITHDRAWAL_FEES, KYC_DAILY_LIMITS } from "@/lib/constants";
 
@@ -55,7 +56,7 @@ export async function POST(req: NextRequest) {
     const fee = getWithdrawalFee(amount, user.membershipTier);
     const netAmount = amount - fee;
 
-    const withdrawal = await prisma.$transaction(async (tx) => {
+    const withdrawal = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       const createdWithdrawal = await tx.withdrawal.create({
         data: {
           userId: session.sub,

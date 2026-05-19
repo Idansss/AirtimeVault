@@ -4,6 +4,7 @@ import { z } from "zod";
 import { requireAuth } from "@/lib/api/auth";
 import { ok, created, err, handleError } from "@/lib/api/response";
 import { prisma } from "@/lib/prisma";
+import type { Prisma } from "@prisma/client";
 import { applyWalletTransaction } from "@/lib/api/wallet";
 
 export const dynamic = "force-dynamic";
@@ -44,7 +45,7 @@ export async function POST(req: NextRequest) {
 
     const fee = Number(((parsed.data.amount * ESCROW_FEE_PERCENT) / 100).toFixed(2));
 
-    const deal = await prisma.$transaction(async (tx) => {
+    const deal = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       const createdDeal = await tx.escrowDeal.create({
         data: {
           buyerId: buyer.id,
