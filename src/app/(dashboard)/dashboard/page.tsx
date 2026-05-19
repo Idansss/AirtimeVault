@@ -56,7 +56,7 @@ export default async function DashboardPage() {
     referralEarned:   Number(wallet?.referralEarned   ?? 0),
   };
 
-  const entries: LedgerEntry[] = ledgerRows.map((e) => ({
+  const entries: LedgerEntry[] = ledgerRows.map((e: (typeof ledgerRows)[number]) => ({
     id:            e.id,
     type:          e.type,
     status:        e.status as LedgerEntry["status"],
