@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { DM_Sans, Space_Grotesk } from "next/font/google";
+import { Analytics } from "@vercel/analytics/next";
 import { ToastProvider } from "@/components/ui/toast";
 import { ThemeProvider } from "@/components/providers/ThemeProvider";
 import "./globals.css";
@@ -25,6 +26,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <ThemeProvider>
           <ToastProvider>{children}</ToastProvider>
         </ThemeProvider>
+        <Analytics />
       </body>
     </html>
   );
