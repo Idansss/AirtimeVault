@@ -1,0 +1,582 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ─── Enums ─────────────────────────────────────────────────────────────────
+
+enum UserRole {
+  USER
+  MERCHANT
+  AGENT
+  ADMIN
+  SUPER_ADMIN
+}
+
+enum KYCLevel {
+  LEVEL_0
+  LEVEL_1
+  LEVEL_2
+  BUSINESS
+}
+
+enum KYCStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  UNDER_REVIEW
+}
+
+enum MembershipTier {
+  BASIC
+  SILVER
+  GOLD
+  BUSINESS
+}
+
+enum Network {
+  MTN
+  AIRTEL
+  GLO
+  NINEMOBILE
+}
+
+enum ConversionKind {
+  AIRTIME
+  DATA
+}
+
+enum ConversionStatus {
+  PENDING
+  PROCESSING
+  SUCCESSFUL
+  REJECTED
+  REVERSED
+  UNDER_REVIEW
+}
+
+enum WithdrawalStatus {
+  PENDING
+  PROCESSING
+  SUCCESSFUL
+  FAILED
+  REVERSED
+}
+
+enum TransactionType {
+  AIRTIME_CONVERSION
+  DATA_CONVERSION
+  WITHDRAWAL
+  P2P_SEND
+  P2P_RECEIVE
+  BILL_PAYMENT
+  GIFT_CARD_PURCHASE
+  VIRTUAL_CARD_FUND
+  ESCROW_LOCK
+  ESCROW_RELEASE
+  MERCHANT_PAYMENT
+  CASHBACK
+  REFERRAL_BONUS
+  ADMIN_CREDIT
+  ADMIN_DEBIT
+  REVERSAL
+  WITHDRAWAL_FEE
+}
+
+enum TransactionStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  REVERSED
+}
+
+enum BillCategory {
+  AIRTIME
+  DATA
+  ELECTRICITY
+  CABLE_TV
+  INTERNET
+  WATER
+  EXAM_PIN
+  SCHOOL
+  TRANSPORT
+  BETTING
+}
+
+enum EscrowStatus {
+  AWAITING_PAYMENT
+  FUNDED
+  DELIVERED
+  DISPUTED
+  COMPLETED
+  REFUNDED
+  CANCELLED
+}
+
+enum DisputeStatus {
+  OPEN
+  UNDER_REVIEW
+  RESOLVED
+  CLOSED
+}
+
+enum MerchantStatus {
+  PENDING
+  APPROVED
+  SUSPENDED
+  REJECTED
+}
+
+// ─── Models ────────────────────────────────────────────────────────────────
+
+model User {
+  id                String         @id @default(cuid())
+  email             String         @unique
+  phone             String         @unique
+  username          String         @unique
+  passwordHash      String
+  pin               String?
+  role              UserRole       @default(USER)
+  kycLevel          KYCLevel       @default(LEVEL_0)
+  membershipTier    MembershipTier @default(BASIC)
+  isActive          Boolean        @default(true)
+  isFrozen          Boolean        @default(false)
+  emailVerified     Boolean        @default(false)
+  phoneVerified     Boolean        @default(false)
+  referralCode      String         @unique @default(cuid())
+  referredBy        String?
+  lastLoginAt       DateTime?
+  deviceFingerprint String?
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+
+  wallet            Wallet?
+  profile           Profile?
+  kycRecord         KYCRecord?
+  conversions       ConversionRequest[]
+  withdrawals       Withdrawal[]
+  sentTransfers     P2PTransfer[]       @relation("Sender")
+  receivedTransfers P2PTransfer[]       @relation("Receiver")
+  billPayments      BillPayment[]
+  giftCardOrders    GiftCardOrder[]
+  virtualCards      VirtualCard[]
+  buyerEscrows      EscrowDeal[]        @relation("Buyer")
+  sellerEscrows     EscrowDeal[]        @relation("Seller")
+  disputes          Dispute[]
+  tickets           SupportTicket[]
+  notifications     Notification[]
+  fraudFlags        FraudFlag[]
+  auditLogs         AuditLog[]
+  referrals         Referral[]          @relation("Referrer")
+  referral          Referral?           @relation("Referred")
+
+  @@index([email, phone])
+}
+
+model Profile {
+  id          String    @id @default(cuid())
+  userId      String    @unique
+  firstName   String
+  lastName    String
+  dateOfBirth DateTime?
+  address     String?
+  state       String?
+  avatarUrl   String?
+  bvn         String?
+  nin         String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model KYCRecord {
+  id              String    @id @default(cuid())
+  userId          String    @unique
+  level           KYCLevel
+  status          KYCStatus @default(PENDING)
+  bvn             String?
+  nin             String?
+  selfieUrl       String?
+  idType          String?
+  idUrl           String?
+  idNumber        String?
+  addressProofUrl String?
+  rejectionReason String?
+  verifiedAt      DateTime?
+  externalRef     String?   // Sumsub applicant ID
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Wallet {
+  id               String   @id @default(cuid())
+  userId           String   @unique
+  availableBalance Decimal  @default(0) @db.Decimal(18, 2)
+  pendingBalance   Decimal  @default(0) @db.Decimal(18, 2)
+  lockedBalance    Decimal  @default(0) @db.Decimal(18, 2)
+  totalConverted   Decimal  @default(0) @db.Decimal(18, 2)
+  totalWithdrawn   Decimal  @default(0) @db.Decimal(18, 2)
+  totalSpent       Decimal  @default(0) @db.Decimal(18, 2)
+  cashbackEarned   Decimal  @default(0) @db.Decimal(18, 2)
+  referralEarned   Decimal  @default(0) @db.Decimal(18, 2)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  ledgerEntries WalletLedger[]
+}
+
+model WalletLedger {
+  id            String            @id @default(cuid())
+  walletId      String
+  type          TransactionType
+  status        TransactionStatus @default(PENDING)
+  amount        Decimal           @db.Decimal(18, 2)
+  balanceBefore Decimal           @db.Decimal(18, 2)
+  balanceAfter  Decimal           @db.Decimal(18, 2)
+  fee           Decimal           @default(0) @db.Decimal(18, 2)
+  reference     String            @unique @default(cuid())
+  description   String
+  metadata      Json?
+  relatedId     String?
+  createdAt     DateTime          @default(now())
+
+  wallet Wallet @relation(fields: [walletId], references: [id])
+
+  @@index([walletId, createdAt])
+  @@index([reference])
+}
+
+model ConversionRate {
+  id          String         @id @default(cuid())
+  network     Network
+  tier        MembershipTier
+  ratePercent Decimal        @db.Decimal(5, 2)
+  minAmount   Decimal        @db.Decimal(18, 2)
+  maxAmount   Decimal        @db.Decimal(18, 2)
+  isActive    Boolean        @default(true)
+  updatedBy   String
+  updatedAt   DateTime       @updatedAt
+  createdAt   DateTime       @default(now())
+
+  @@unique([network, tier])
+}
+
+model ConversionRequest {
+  id            String           @id @default(cuid())
+  userId        String
+  kind          ConversionKind   @default(AIRTIME)
+  network       Network
+  phoneNumber   String
+  airtimeAmount Decimal          @default(0) @db.Decimal(18, 2)
+  ratePercent   Decimal          @default(0) @db.Decimal(5, 2)
+  walletAmount  Decimal          @default(0) @db.Decimal(18, 2)
+  fee           Decimal          @default(0) @db.Decimal(18, 2)
+  status        ConversionStatus @default(PENDING)
+  reference     String           @unique @default(cuid())
+  proofUrl      String?
+  dataBundle    String?
+  description   String?
+  adminNote     String?
+  processedAt   DateTime?
+  processedBy   String?
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId, status])
+  @@index([reference])
+}
+
+model BankAccount {
+  id            String   @id @default(cuid())
+  userId        String
+  bankName      String
+  bankCode      String
+  accountNumber String
+  accountName   String
+  isDefault     Boolean  @default(false)
+  createdAt     DateTime @default(now())
+
+  withdrawals Withdrawal[]
+
+  @@unique([userId, accountNumber])
+  @@index([userId])
+}
+
+model Withdrawal {
+  id             String           @id @default(cuid())
+  userId         String
+  bankAccountId  String
+  amount         Decimal          @db.Decimal(18, 2)
+  fee            Decimal          @default(0) @db.Decimal(18, 2)
+  netAmount      Decimal          @db.Decimal(18, 2)
+  status         WithdrawalStatus @default(PENDING)
+  reference      String           @unique @default(cuid())
+  providerRef    String?
+  providerStatus String?
+  failureReason  String?
+  processedAt    DateTime?
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  user        User        @relation(fields: [userId], references: [id])
+  bankAccount BankAccount @relation(fields: [bankAccountId], references: [id])
+
+  @@index([userId, status])
+}
+
+model P2PTransfer {
+  id         String            @id @default(cuid())
+  senderId   String
+  receiverId String
+  amount     Decimal           @db.Decimal(18, 2)
+  note       String?
+  status     TransactionStatus @default(PENDING)
+  reference  String            @unique @default(cuid())
+  createdAt  DateTime          @default(now())
+
+  sender   User @relation("Sender", fields: [senderId], references: [id])
+  receiver User @relation("Receiver", fields: [receiverId], references: [id])
+
+  @@index([senderId, receiverId])
+}
+
+model BillPayment {
+  id          String            @id @default(cuid())
+  userId      String
+  category    BillCategory
+  provider    String
+  itemCode    String?
+  recipient   String
+  amount      Decimal           @db.Decimal(18, 2)
+  status      TransactionStatus @default(PENDING)
+  reference   String            @unique @default(cuid())
+  providerRef String?
+  metadata    Json?
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId, category])
+}
+
+model GiftCardOrder {
+  id           String            @id @default(cuid())
+  userId       String
+  brand        String
+  denomination Decimal           @db.Decimal(18, 2)
+  currency     String            @default("USD")
+  amount       Decimal           @db.Decimal(18, 2)
+  cardCode     String?
+  status       TransactionStatus @default(PENDING)
+  reference    String            @unique @default(cuid())
+  providerRef  String?
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+
+  user User @relation(fields: [userId], references: [id])
+}
+
+model VirtualCard {
+  id            String   @id @default(cuid())
+  userId        String
+  cardProvider  String
+  maskedPan     String
+  expiry        String
+  currency      String   @default("USD")
+  balance       Decimal  @default(0) @db.Decimal(18, 2)
+  spendingLimit Decimal? @db.Decimal(18, 2)
+  isFrozen      Boolean  @default(false)
+  isActive      Boolean  @default(true)
+  providerRef   String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+}
+
+model EscrowDeal {
+  id           String       @id @default(cuid())
+  buyerId      String
+  sellerId     String
+  title        String
+  description  String
+  amount       Decimal      @db.Decimal(18, 2)
+  fee          Decimal      @default(0) @db.Decimal(18, 2)
+  status       EscrowStatus @default(AWAITING_PAYMENT)
+  reference    String       @unique @default(cuid())
+  deliveryDays Int          @default(7)
+  fundedAt     DateTime?
+  deliveredAt  DateTime?
+  completedAt  DateTime?
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  buyer    User       @relation("Buyer", fields: [buyerId], references: [id])
+  seller   User       @relation("Seller", fields: [sellerId], references: [id])
+  disputes Dispute[]
+
+  @@index([buyerId, sellerId])
+}
+
+model Merchant {
+  id           String         @id @default(cuid())
+  userId       String         @unique
+  businessName String
+  businessType String
+  cacNumber    String?
+  webhookUrl   String?
+  apiKey       String         @unique @default(cuid())
+  secretKey    String         @unique @default(cuid())
+  status       MerchantStatus @default(PENDING)
+  feePercent   Decimal        @default(1.5) @db.Decimal(5, 2)
+  totalSales   Decimal        @default(0) @db.Decimal(18, 2)
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+
+  transactions MerchantTransaction[]
+}
+
+model MerchantTransaction {
+  id          String            @id @default(cuid())
+  merchantId  String
+  customerId  String?
+  amount      Decimal           @db.Decimal(18, 2)
+  fee         Decimal           @db.Decimal(18, 2)
+  netAmount   Decimal           @db.Decimal(18, 2)
+  status      TransactionStatus @default(PENDING)
+  reference   String            @unique @default(cuid())
+  description String?
+  metadata    Json?
+  createdAt   DateTime          @default(now())
+
+  merchant Merchant @relation(fields: [merchantId], references: [id])
+}
+
+model Dispute {
+  id          String        @id @default(cuid())
+  userId      String
+  escrowId    String?
+  type        String
+  subject     String
+  description String
+  status      DisputeStatus @default(OPEN)
+  resolution  String?
+  resolvedAt  DateTime?
+  resolvedBy  String?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  user   User        @relation(fields: [userId], references: [id])
+  escrow EscrowDeal? @relation(fields: [escrowId], references: [id])
+}
+
+model SupportTicket {
+  id          String    @id @default(cuid())
+  userId      String
+  subject     String
+  description String
+  status      String    @default("OPEN")
+  priority    String    @default("NORMAL")
+  assignedTo  String?
+  resolvedAt  DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  user     User            @relation(fields: [userId], references: [id])
+  messages TicketMessage[]
+}
+
+model TicketMessage {
+  id        String   @id @default(cuid())
+  ticketId  String
+  senderId  String
+  message   String
+  isAdmin   Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  ticket SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+}
+
+model FraudFlag {
+  id          String   @id @default(cuid())
+  userId      String
+  type        String
+  description String
+  metadata    Json?
+  isResolved  Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  title     String
+  body      String
+  type      String
+  isRead    Boolean  @default(false)
+  metadata  Json?
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId, isRead])
+}
+
+model Referral {
+  id           String    @id @default(cuid())
+  referrerId   String
+  referredId   String    @unique
+  rewardAmount Decimal   @default(0) @db.Decimal(18, 2)
+  isPaid       Boolean   @default(false)
+  paidAt       DateTime?
+  createdAt    DateTime  @default(now())
+
+  referrer User @relation("Referrer", fields: [referrerId], references: [id])
+  referred User @relation("Referred", fields: [referredId], references: [id])
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String?
+  action    String
+  entity    String
+  entityId  String?
+  oldValue  Json?
+  newValue  Json?
+  ipAddress String?
+  userAgent String?
+  createdAt DateTime @default(now())
+
+  user User? @relation(fields: [userId], references: [id])
+
+  @@index([userId, action])
+  @@index([entity, entityId])
+}
+
+model OTPCode {
+  id        String    @id @default(cuid())
+  phone     String?
+  email     String?
+  code      String
+  purpose   String
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([phone, purpose])
+  @@index([email, purpose])
+}
